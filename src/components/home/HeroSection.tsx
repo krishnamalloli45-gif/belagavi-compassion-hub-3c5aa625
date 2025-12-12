@@ -26,7 +26,7 @@ export function HeroSection() {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/20 mb-8 animate-fade-up">
             <Heart className="w-4 h-4 text-accent" />
             <span className="text-sm font-medium text-primary-foreground">
-              Serving Belagavi Since 2010
+              Serving Belagavi Since 2025
             </span>
           </div>
           
