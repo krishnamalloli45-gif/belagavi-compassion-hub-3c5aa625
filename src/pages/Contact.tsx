@@ -24,12 +24,12 @@ const contactInfo = [
   {
     icon: Phone,
     title: "Call Us",
-    details: ["+91 98765 43210", "+91 98765 43211"],
+    details: ["+91 80951 01108"],
   },
   {
     icon: Mail,
     title: "Email Us",
-    details: ["info@steptowardswelfare.org", "volunteer@steptowardswelfare.org"],
+    details: ["steptowardswelfare@gmail.com"],
   },
   {
     icon: Clock,

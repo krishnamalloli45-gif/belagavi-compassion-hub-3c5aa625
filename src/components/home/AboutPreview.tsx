@@ -35,7 +35,7 @@ export function AboutPreview() {
               <span className="text-primary">Belagavi</span>
             </h2>
             <p className="text-muted-foreground text-lg leading-relaxed mb-8">
-              Founded in 2010, Step Towards Welfare has been at the forefront of 
+              Founded in 2025, Step Towards Welfare has been at the forefront of
               social transformation in Belagavi. We believe in empowering communities 
               through education, healthcare initiatives, and sustainable development 
               programs that create lasting impact.

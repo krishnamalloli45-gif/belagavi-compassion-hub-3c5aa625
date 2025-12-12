@@ -9,12 +9,7 @@ const values = [
 ];
 
 const milestones = [
-  { year: "2010", title: "Foundation", description: "Step Towards Welfare was established by a group of dedicated social workers in Belagavi." },
-  { year: "2013", title: "First Education Center", description: "Opened our first learning center for underprivileged children." },
-  { year: "2016", title: "Health Initiative Launch", description: "Started organizing monthly health camps across Belagavi district." },
-  { year: "2019", title: "Environmental Focus", description: "Launched green Belagavi initiative with tree plantation drives." },
-  { year: "2022", title: "NGO Network", description: "Established partnerships with 50+ local NGOs for collaborative impact." },
-  { year: "2024", title: "Digital Expansion", description: "Launched digital platforms to reach more communities." },
+  { year: "2025", title: "Foundation", description: "Step Towards Welfare was established by a group of dedicated social workers in Belagavi." },
 ];
 
 const team = [
@@ -93,7 +88,7 @@ export default function About() {
             </div>
             <div className="bg-card rounded-3xl p-8 md:p-12 shadow-card">
               <p className="text-muted-foreground leading-relaxed mb-6">
-                Step Towards Welfare was born in 2010 from a simple belief: that every small 
+                Step Towards Welfare was born in 2025 from a simple belief: that every small
                 act of kindness can create ripples of change. Our founder, Dr. Ramesh Joshi, 
                 witnessed the struggles of underprivileged communities in Belagavi and decided 
                 that action was needed, not just sympathy.

@@ -110,19 +110,19 @@ export function Footer() {
               <li className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-accent flex-shrink-0" />
                 <a
-                  href="tel:+919876543210"
+                  href="tel:+918095101108"
                   className="text-primary-foreground/80 hover:text-primary-foreground transition-colors"
                 >
-                  +91 98765 43210
+                  +91 80951 01108
                 </a>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-accent flex-shrink-0" />
                 <a
-                  href="mailto:info@steptowardswelfare.org"
+                  href="mailto:steptowardswelfare@gmail.com"
                   className="text-primary-foreground/80 hover:text-primary-foreground transition-colors"
                 >
-                  info@steptowardswelfare.org
+                  steptowardswelfare@gmail.com
                 </a>
               </li>
             </ul>
