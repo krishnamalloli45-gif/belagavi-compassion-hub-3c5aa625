@@ -23,6 +23,10 @@ import ExpenseManagement from "./pages/admin/finance/ExpenseManagement";
 import FundAccounts from "./pages/admin/finance/FundAccounts";
 import FinanceReports from "./pages/admin/finance/FinanceReports";
 import UserManagement from "./pages/admin/UserManagement";
+import FoodInventory from "./pages/admin/inventory/FoodInventory";
+import MedicineInventory from "./pages/admin/inventory/MedicineInventory";
+import StaffManagement from "./pages/admin/staff/StaffManagement";
+import AttendanceManagement from "./pages/admin/staff/AttendanceManagement";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +57,10 @@ const App = () => (
               <Route path="finance/expenses" element={<ExpenseManagement />} />
               <Route path="finance/funds" element={<FundAccounts />} />
               <Route path="finance/reports" element={<FinanceReports />} />
+              <Route path="inventory/food" element={<FoodInventory />} />
+              <Route path="inventory/medicine" element={<MedicineInventory />} />
+              <Route path="staff" element={<StaffManagement />} />
+              <Route path="staff/attendance" element={<AttendanceManagement />} />
               <Route path="users" element={<UserManagement />} />
             </Route>
             
