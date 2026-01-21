@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, Search, UserCheck, UserX, Clock, Download } from 'lucide-react';
+import { Calendar, Search, UserCheck, UserX, Clock, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,75 +11,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameDay } from 'date-fns';
-
-interface Staff {
-  id: string;
-  full_name: string;
-  department: string | null;
-}
-
-interface AttendanceRecord {
-  id: string;
-  staff_id: string;
-  date: string;
-  status: 'present' | 'absent' | 'half_day' | 'leave';
-  check_in_time: string | null;
-  check_out_time: string | null;
-  notes: string | null;
-}
-
-const mockStaff: Staff[] = [
-  { id: '1', full_name: 'Rajesh Kumar', department: 'Management' },
-  { id: '2', full_name: 'Priya Sharma', department: 'Accounts' },
-  { id: '3', full_name: 'Amit Patel', department: 'Operations' },
-  { id: '4', full_name: 'Sunita Devi', department: 'Field Work' },
-  { id: '5', full_name: 'Mohammed Ali', department: 'Healthcare' },
-];
-
-const generateMockAttendance = (): AttendanceRecord[] => {
-  const records: AttendanceRecord[] = [];
-  const today = new Date();
-  const statuses: AttendanceRecord['status'][] = ['present', 'absent', 'half_day', 'leave'];
-  
-  mockStaff.forEach(staff => {
-    // Generate attendance for last 30 days
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      
-      if (date.getDay() !== 0) { // Skip Sundays
-        const status = i === 0 ? 'present' : statuses[Math.floor(Math.random() * 4)];
-        records.push({
-          id: `${staff.id}-${format(date, 'yyyy-MM-dd')}`,
-          staff_id: staff.id,
-          date: format(date, 'yyyy-MM-dd'),
-          status,
-          check_in_time: status === 'present' || status === 'half_day' ? '09:00' : null,
-          check_out_time: status === 'present' ? '18:00' : status === 'half_day' ? '13:00' : null,
-          notes: null,
-        });
-      }
-    }
-  });
-  
-  return records;
-};
+import { format, isToday } from 'date-fns';
+import { useStaff } from '@/hooks/useStaff';
+import { useAttendance } from '@/hooks/useAttendance';
 
 const AttendanceManagement = () => {
+  const { staffList, isLoading: staffLoading } = useStaff();
+  const { 
+    attendance, 
+    isLoading: attendanceLoading, 
+    markAttendance, 
+    getAttendanceForDate,
+    getMonthlyStats,
+    isMarking 
+  } = useAttendance();
+
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
-  const [staffList] = useState<Staff[]>(mockStaff);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(generateMockAttendance());
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
 
   const filteredStaff = staffList.filter(staff =>
@@ -87,42 +36,15 @@ const AttendanceManagement = () => {
     staff.department?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const getAttendanceForDate = (staffId: string, date: string) => {
-    return attendance.find(a => a.staff_id === staffId && a.date === date);
-  };
-
-  const markAttendance = (staffId: string, status: AttendanceRecord['status']) => {
-    const existingRecord = getAttendanceForDate(staffId, selectedDate);
-    
-    if (existingRecord) {
-      setAttendance(records =>
-        records.map(r =>
-          r.id === existingRecord.id
-            ? { 
-                ...r, 
-                status, 
-                check_in_time: status === 'present' || status === 'half_day' ? format(new Date(), 'HH:mm') : null,
-                check_out_time: null 
-              }
-            : r
-        )
-      );
-    } else {
-      const newRecord: AttendanceRecord = {
-        id: `${staffId}-${selectedDate}`,
-        staff_id: staffId,
-        date: selectedDate,
-        status,
-        check_in_time: status === 'present' || status === 'half_day' ? format(new Date(), 'HH:mm') : null,
-        check_out_time: null,
-        notes: null,
-      };
-      setAttendance(records => [...records, newRecord]);
+  const handleMarkAttendance = async (staffId: string, status: 'present' | 'absent' | 'half_day' | 'leave') => {
+    try {
+      await markAttendance({ staffId, date: selectedDate, status });
+    } catch (error) {
+      // Error handled by hook
     }
-    toast.success('Attendance marked');
   };
 
-  const getStatusBadge = (status: AttendanceRecord['status'] | undefined) => {
+  const getStatusBadge = (status: string | undefined) => {
     switch (status) {
       case 'present':
         return <Badge className="bg-green-100 text-green-800">Present</Badge>;
@@ -137,27 +59,19 @@ const AttendanceManagement = () => {
     }
   };
 
-  // Calculate monthly stats
-  const getMonthlyStats = (staffId: string) => {
-    const [year, month] = selectedMonth.split('-').map(Number);
-    const start = startOfMonth(new Date(year, month - 1));
-    const end = endOfMonth(new Date(year, month - 1));
-    
-    const staffAttendance = attendance.filter(
-      a => a.staff_id === staffId && new Date(a.date) >= start && new Date(a.date) <= end
-    );
-    
-    return {
-      present: staffAttendance.filter(a => a.status === 'present').length,
-      absent: staffAttendance.filter(a => a.status === 'absent').length,
-      halfDay: staffAttendance.filter(a => a.status === 'half_day').length,
-      leave: staffAttendance.filter(a => a.status === 'leave').length,
-    };
-  };
-
   const todaysAttendance = attendance.filter(a => a.date === format(new Date(), 'yyyy-MM-dd'));
   const presentToday = todaysAttendance.filter(a => a.status === 'present' || a.status === 'half_day').length;
   const absentToday = todaysAttendance.filter(a => a.status === 'absent').length;
+
+  const isLoading = staffLoading || attendanceLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -260,54 +174,66 @@ const AttendanceManagement = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStaff.map(staff => {
-                const record = getAttendanceForDate(staff.id, selectedDate);
-                return (
-                  <TableRow key={staff.id}>
-                    <TableCell className="font-medium">{staff.full_name}</TableCell>
-                    <TableCell>{staff.department || '-'}</TableCell>
-                    <TableCell>{getStatusBadge(record?.status)}</TableCell>
-                    <TableCell>{record?.check_in_time || '-'}</TableCell>
-                    <TableCell>{record?.check_out_time || '-'}</TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          variant={record?.status === 'present' ? 'default' : 'outline'}
-                          className="text-xs"
-                          onClick={() => markAttendance(staff.id, 'present')}
-                        >
-                          P
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={record?.status === 'absent' ? 'destructive' : 'outline'}
-                          className="text-xs"
-                          onClick={() => markAttendance(staff.id, 'absent')}
-                        >
-                          A
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={record?.status === 'half_day' ? 'secondary' : 'outline'}
-                          className="text-xs"
-                          onClick={() => markAttendance(staff.id, 'half_day')}
-                        >
-                          H
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant={record?.status === 'leave' ? 'secondary' : 'outline'}
-                          className="text-xs"
-                          onClick={() => markAttendance(staff.id, 'leave')}
-                        >
-                          L
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {filteredStaff.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No staff members found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredStaff.map(staff => {
+                  const record = getAttendanceForDate(staff.id, selectedDate);
+                  return (
+                    <TableRow key={staff.id}>
+                      <TableCell className="font-medium">{staff.full_name}</TableCell>
+                      <TableCell>{staff.department || '-'}</TableCell>
+                      <TableCell>{getStatusBadge(record?.status)}</TableCell>
+                      <TableCell>{record?.check_in_time || '-'}</TableCell>
+                      <TableCell>{record?.check_out_time || '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant={record?.status === 'present' ? 'default' : 'outline'}
+                            className="text-xs"
+                            onClick={() => handleMarkAttendance(staff.id, 'present')}
+                            disabled={isMarking}
+                          >
+                            P
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={record?.status === 'absent' ? 'destructive' : 'outline'}
+                            className="text-xs"
+                            onClick={() => handleMarkAttendance(staff.id, 'absent')}
+                            disabled={isMarking}
+                          >
+                            A
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={record?.status === 'half_day' ? 'secondary' : 'outline'}
+                            className="text-xs"
+                            onClick={() => handleMarkAttendance(staff.id, 'half_day')}
+                            disabled={isMarking}
+                          >
+                            H
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant={record?.status === 'leave' ? 'secondary' : 'outline'}
+                            className="text-xs"
+                            onClick={() => handleMarkAttendance(staff.id, 'leave')}
+                            disabled={isMarking}
+                          >
+                            L
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -347,7 +273,8 @@ const AttendanceManagement = () => {
             </TableHeader>
             <TableBody>
               {staffList.map(staff => {
-                const stats = getMonthlyStats(staff.id);
+                const [year, month] = selectedMonth.split('-').map(Number);
+                const stats = getMonthlyStats(staff.id, year, month);
                 const totalDays = stats.present + stats.absent + stats.halfDay + stats.leave;
                 const attendanceRate = totalDays > 0 
                   ? Math.round(((stats.present + stats.halfDay * 0.5) / totalDays) * 100) 
