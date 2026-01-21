@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,34 +20,26 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
-
-interface FoodItem {
-  id: string;
-  name: string;
-  quantity: number;
-  unit: string;
-  expiry_date: string | null;
-  category: string | null;
-  minimum_stock: number;
-  created_at: string;
-}
-
-// Mock data for demo
-const mockFoodItems: FoodItem[] = [
-  { id: '1', name: 'Rice', quantity: 100, unit: 'kg', expiry_date: '2025-06-15', category: 'Grains', minimum_stock: 20, created_at: new Date().toISOString() },
-  { id: '2', name: 'Wheat Flour', quantity: 50, unit: 'kg', expiry_date: '2025-03-20', category: 'Grains', minimum_stock: 15, created_at: new Date().toISOString() },
-  { id: '3', name: 'Cooking Oil', quantity: 5, unit: 'liters', expiry_date: '2025-08-10', category: 'Oils', minimum_stock: 10, created_at: new Date().toISOString() },
-  { id: '4', name: 'Sugar', quantity: 30, unit: 'kg', expiry_date: '2025-12-01', category: 'Essentials', minimum_stock: 10, created_at: new Date().toISOString() },
-  { id: '5', name: 'Lentils', quantity: 25, unit: 'kg', expiry_date: '2025-04-05', category: 'Pulses', minimum_stock: 15, created_at: new Date().toISOString() },
-];
+import { useFoodInventory, FoodItem } from '@/hooks/useFoodInventory';
+import { useAuth } from '@/contexts/AuthContext';
 
 const FoodInventory = () => {
+  const { isAdmin } = useAuth();
+  const { 
+    foodItems, 
+    isLoading, 
+    addItem, 
+    updateItem, 
+    deleteItem,
+    isAdding,
+    isUpdating,
+    isDeleting,
+  } = useFoodInventory();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<FoodItem | null>(null);
-  const [foodItems, setFoodItems] = useState<FoodItem[]>(mockFoodItems);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -79,33 +70,36 @@ const FoodInventory = () => {
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingItem) {
-      setFoodItems(items =>
-        items.map(item =>
-          item.id === editingItem.id
-            ? { ...item, ...formData }
-            : item
-        )
-      );
-      toast.success('Food item updated successfully');
-    } else {
-      const newItem: FoodItem = {
-        id: Date.now().toString(),
-        ...formData,
-        created_at: new Date().toISOString(),
-      };
-      setFoodItems(items => [...items, newItem]);
-      toast.success('Food item added successfully');
+    try {
+      if (editingItem) {
+        await updateItem({
+          id: editingItem.id,
+          ...formData,
+          expiry_date: formData.expiry_date || null,
+          category: formData.category || null,
+        });
+      } else {
+        await addItem({
+          ...formData,
+          expiry_date: formData.expiry_date || null,
+          category: formData.category || null,
+        });
+      }
+      resetForm();
+    } catch (error) {
+      // Error is handled by the hook
     }
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this item?')) {
-      setFoodItems(items => items.filter(item => item.id !== id));
-      toast.success('Food item deleted');
+      try {
+        await deleteItem(id);
+      } catch (error) {
+        // Error is handled by the hook
+      }
     }
   };
 
@@ -141,6 +135,14 @@ const FoodInventory = () => {
     const days = differenceInDays(new Date(item.expiry_date), new Date());
     return days <= 30 && days >= 0;
   }).length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -223,7 +225,8 @@ const FoodInventory = () => {
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isAdding || isUpdating}>
+                  {(isAdding || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingItem ? 'Update' : 'Add'} Item
                 </Button>
               </div>
@@ -338,9 +341,11 @@ const FoodInventory = () => {
                           <Button size="sm" variant="ghost" onClick={() => handleEdit(item)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {isAdmin && (
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)} disabled={isDeleting}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

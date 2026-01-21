@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Edit, Trash2, AlertTriangle, Pill } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, AlertTriangle, Pill, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,34 +20,26 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
-
-interface MedicineItem {
-  id: string;
-  name: string;
-  batch_number: string | null;
-  quantity: number;
-  unit: string;
-  expiry_date: string | null;
-  manufacturer: string | null;
-  minimum_stock: number;
-  created_at: string;
-}
-
-const mockMedicineItems: MedicineItem[] = [
-  { id: '1', name: 'Paracetamol 500mg', batch_number: 'BT2024001', quantity: 500, unit: 'tablets', expiry_date: '2025-12-15', manufacturer: 'Sun Pharma', minimum_stock: 100, created_at: new Date().toISOString() },
-  { id: '2', name: 'Amoxicillin 250mg', batch_number: 'BT2024002', quantity: 200, unit: 'capsules', expiry_date: '2025-06-20', manufacturer: 'Cipla', minimum_stock: 50, created_at: new Date().toISOString() },
-  { id: '3', name: 'ORS Packets', batch_number: 'BT2024003', quantity: 80, unit: 'packets', expiry_date: '2025-03-10', manufacturer: 'Electral', minimum_stock: 100, created_at: new Date().toISOString() },
-  { id: '4', name: 'Bandages', batch_number: 'BT2024004', quantity: 150, unit: 'rolls', expiry_date: '2026-01-01', manufacturer: 'Johnson & Johnson', minimum_stock: 30, created_at: new Date().toISOString() },
-  { id: '5', name: 'Antiseptic Liquid', batch_number: 'BT2024005', quantity: 20, unit: 'bottles', expiry_date: '2025-08-05', manufacturer: 'Dettol', minimum_stock: 25, created_at: new Date().toISOString() },
-];
+import { useMedicineInventory, MedicineItem } from '@/hooks/useMedicineInventory';
+import { useAuth } from '@/contexts/AuthContext';
 
 const MedicineInventory = () => {
+  const { isAdmin } = useAuth();
+  const { 
+    medicineItems, 
+    isLoading, 
+    addItem, 
+    updateItem, 
+    deleteItem,
+    isAdding,
+    isUpdating,
+    isDeleting,
+  } = useMedicineInventory();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MedicineItem | null>(null);
-  const [medicineItems, setMedicineItems] = useState<MedicineItem[]>(mockMedicineItems);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -80,33 +72,38 @@ const MedicineInventory = () => {
     return null;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingItem) {
-      setMedicineItems(items =>
-        items.map(item =>
-          item.id === editingItem.id
-            ? { ...item, ...formData }
-            : item
-        )
-      );
-      toast.success('Medicine updated successfully');
-    } else {
-      const newItem: MedicineItem = {
-        id: Date.now().toString(),
-        ...formData,
-        created_at: new Date().toISOString(),
-      };
-      setMedicineItems(items => [...items, newItem]);
-      toast.success('Medicine added successfully');
+    try {
+      if (editingItem) {
+        await updateItem({
+          id: editingItem.id,
+          ...formData,
+          batch_number: formData.batch_number || null,
+          expiry_date: formData.expiry_date || null,
+          manufacturer: formData.manufacturer || null,
+        });
+      } else {
+        await addItem({
+          ...formData,
+          batch_number: formData.batch_number || null,
+          expiry_date: formData.expiry_date || null,
+          manufacturer: formData.manufacturer || null,
+        });
+      }
+      resetForm();
+    } catch (error) {
+      // Error is handled by the hook
     }
-    resetForm();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this medicine?')) {
-      setMedicineItems(items => items.filter(item => item.id !== id));
-      toast.success('Medicine deleted');
+      try {
+        await deleteItem(id);
+      } catch (error) {
+        // Error is handled by the hook
+      }
     }
   };
 
@@ -148,6 +145,14 @@ const MedicineInventory = () => {
     if (!item.expiry_date) return false;
     return differenceInDays(new Date(item.expiry_date), new Date()) < 0;
   }).length;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -243,7 +248,8 @@ const MedicineInventory = () => {
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isAdding || isUpdating}>
+                  {(isAdding || isUpdating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {editingItem ? 'Update' : 'Add'} Medicine
                 </Button>
               </div>
@@ -371,9 +377,11 @@ const MedicineInventory = () => {
                           <Button size="sm" variant="ghost" onClick={() => handleEdit(item)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {isAdmin && (
+                            <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id)} disabled={isDeleting}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
